@@ -67,18 +67,23 @@ Diabetes-Patient-Readmission-Classification/
 ├── pyproject.toml               # uv-managed dependencies
 ├── diabetic_data.csv            # raw dataset
 ├── src/
-│   ├── config.py                # pydantic-validated settings + column lists
-│   ├── logger.py                # central loguru logger
-│   ├── data_loader.py           # CSV loading
-│   ├── cleaning.py              # drop sparse cols / invalid rows
-│   ├── feature_engineering.py   # derived features, encoding, interactions
-│   ├── transform.py             # standardize, outlier removal, one-hot
-│   ├── visualization.py         # EDA + model-comparison plots
-│   ├── models.py                # SMOTE, train/eval LogReg/DTree/RF
-│   ├── tracking.py              # MLflow experiment + run logging
-│   ├── persistence.py           # save/load the winning model (joblib)
-│   ├── schemas.py               # FastAPI request/response models
-│   └── api.py                   # FastAPI /predict service
+│   ├── core/                    # cross-cutting concerns
+│   │   ├── config.py            # pydantic-validated settings + column lists
+│   │   └── logger.py            # central loguru logger
+│   ├── data/                    # data pipeline
+│   │   ├── loader.py            # CSV loading
+│   │   ├── cleaning.py          # drop sparse cols / invalid rows
+│   │   ├── feature_engineering.py
+│   │   └── transform.py         # standardize, outlier removal, one-hot
+│   ├── modeling/                # training & model lifecycle
+│   │   ├── estimators.py        # SMOTE, train/eval LogReg/DTree/RF
+│   │   ├── tracking.py          # MLflow experiment + run logging
+│   │   └── persistence.py       # save/load the winning model (joblib)
+│   ├── visualization/
+│   │   └── plots.py             # EDA + model-comparison plots
+│   └── api/                     # FastAPI service
+│       ├── app.py               # /health + /predict endpoints
+│       └── schemas.py           # request/response models
 ├── test/                        # ready-to-POST /predict payloads
 ├── outputs/                     # generated plots (created by main.py)
 ├── models/                      # winner_random_forest.joblib + sample_input.json
@@ -141,7 +146,7 @@ uv run mlflow runs search --experiment-id <ID>
 Start the API (needs `models/winner_random_forest.joblib` from step 1):
 
 ```bash
-uv run uvicorn src.api:app --port 8000
+uv run uvicorn src.api.app:app --port 8000
 ```
 
 Interactive docs: <http://127.0.0.1:8000/docs>

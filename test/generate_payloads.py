@@ -15,9 +15,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from main import preprocess  # noqa: E402
-from src.data_loader import load_data
-from src.models import build_feature_matrix
-from src.persistence import load_winner
+from src.data.loader import load_data
+from src.modeling.estimators import build_feature_matrix
+from src.modeling.persistence import load_winner
 
 TEST_DIR = Path("test")
 
@@ -35,9 +35,7 @@ def main() -> None:
 
     preds = model.predict(x)
 
-    # One real row the model predicts NOT readmitted (0)...
     idx0 = next(i for i, p in enumerate(preds) if p == 0)
-    # ...and one it predicts readmitted <30 days (1).
     idx1 = next(i for i, p in enumerate(preds) if p == 1)
 
     row0 = {k: float(v) for k, v in x.iloc[idx0].to_dict().items()}
@@ -46,7 +44,6 @@ def main() -> None:
     _write("predict_not_readmitted.json", {"features": row0})
     _write("predict_readmitted.json", {"features": row1})
 
-    # Negative tests.
     partial = {k: row0[k] for k in feature_columns[:5]}
     _write("invalid_missing_features.json", {"features": partial})
     _write("invalid_empty.json", {"features": {}})

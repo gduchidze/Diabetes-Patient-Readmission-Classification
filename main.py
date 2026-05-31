@@ -7,12 +7,12 @@ compare. Run with ``uv run python main.py``.
 
 from __future__ import annotations
 
-from src.config import DIAG_DROP_COLS
-from src.cleaning import drop_invalid_rows, drop_sparse_columns
-from src.data_loader import load_data
-from src.logger import logger
-from src.persistence import save_winner
-from src.feature_engineering import (
+from src.core.config import DIAG_DROP_COLS
+from src.data.cleaning import drop_invalid_rows, drop_sparse_columns
+from src.data.loader import load_data
+from src.core.logger import logger
+from src.modeling.persistence import save_winner
+from src.data.feature_engineering import (
     add_interaction_terms,
     add_numchange,
     add_nummed,
@@ -28,7 +28,7 @@ from src.feature_engineering import (
     recast_numeric,
     recode_admission_discharge,
 )
-from src.models import (
+from src.modeling.estimators import (
     build_feature_matrix,
     evaluate,
     model_params,
@@ -38,15 +38,15 @@ from src.models import (
     train_logistic,
     train_random_forest,
 )
-from src.tracking import init_tracking, log_model_run
-from src.transform import (
+from src.modeling.tracking import init_tracking, log_model_run
+from src.data.transform import (
     drop_redundant_columns,
     log_transform_report,
     numeric_columns,
     one_hot_encode,
     standardize_and_remove_outliers,
 )
-from src.visualization import plot_correlation, plot_eda, plot_model_comparison
+from src.visualization.plots import plot_correlation, plot_eda, plot_model_comparison
 
 
 def preprocess(df):

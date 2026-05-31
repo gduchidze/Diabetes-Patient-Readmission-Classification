@@ -20,7 +20,7 @@ uv run --no-sync python test/generate_payloads.py
 
 ```bash
 # 1. start the API (needs models/winner_random_forest.joblib from main.py)
-uv run --no-sync uvicorn src.api:app --port 8000
+uv run --no-sync uvicorn src.api.app:app --port 8000
 
 # 2. valid prediction
 curl -s -X POST localhost:8000/predict \
