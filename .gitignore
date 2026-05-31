@@ -1,0 +1,7 @@
+.omc/
+*csv
+.cpython
+.venv
+.env
+.claude
+.idea/
