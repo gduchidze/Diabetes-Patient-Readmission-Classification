@@ -1,8 +1,4 @@
-"""Central configuration: paths, column lists, mappings, and thresholds.
-
-Every literal that was scattered across the notebook lives here so the pipeline
-modules stay declarative.
-"""
+"""Project configuration: column lists, mappings, and validated settings."""
 
 from __future__ import annotations
 
@@ -157,40 +153,29 @@ FEATURE_SET: list[str] = [
     "num_medications|numchange",
 ]
 
-# --- Validated runtime settings ------------------------------------------
 class Settings(BaseModel):
-    """Validated scalar config: tunables, paths, tracking, and serving.
+    """Validated tunables, paths, tracking, and serving config."""
 
-    Column lists/mappings above are structural and stay as module constants;
-    these scalars carry invariants worth enforcing with pydantic validators.
-    """
-
-    # Paths
     data_path: str = "diabetic_data.csv"
     output_dir: str = "outputs"
 
-    # Transform thresholds
     zscore_threshold: float = 3.0
     skew_kurt_threshold: float = 2.0
     log_zero_fraction: float = 0.02
 
-    # Split / resampling
     test_size: float = 0.20
     random_state: int = 0
     smote_random_state: int = 20
 
-    # Model hyperparameters
     dtree_max_depth: int = 28
     dtree_min_samples_split: int = 10
     rf_n_estimators: int = 10
     rf_max_depth: int = 25
     rf_min_samples_split: int = 10
 
-    # MLflow tracking
     mlflow_tracking_uri: str = "mlruns"
     mlflow_experiment: str = "diabetes-readmission"
 
-    # Model serving (FastAPI)
     model_dir: str = "models"
     winner_model_path: str = "models/winner_random_forest.joblib"
     sample_input_path: str = "models/sample_input.json"

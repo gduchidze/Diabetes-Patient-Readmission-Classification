@@ -1,6 +1,9 @@
+"""Configured loguru logger shared across the project."""
+
 from __future__ import annotations
 
 import sys
+
 from loguru import logger
 
 logger.remove()
