@@ -1,5 +1,4 @@
-"""Numeric transforms: skew reporting, standardization, outlier removal, one-hot.
-"""
+"""Numeric transforms: skew reporting, standardization, outlier removal, one-hot."""
 
 from __future__ import annotations
 
@@ -17,13 +16,13 @@ from src.core.config import (
 
 
 def numeric_columns(df: pd.DataFrame, exclude: tuple[str, ...] = ("readmitted",)) -> list[str]:
+    """Numeric column names, minus the excluded ones."""
     numeric = df.select_dtypes(include=["int64", "float64"]).columns
     return list(set(numeric) - set(exclude))
 
 
 def log_transform_report(df: pd.DataFrame, num_cols: list[str]) -> pd.DataFrame:
-    """Report skew/kurtosis before and after a candidate log
-    """
+    """Report skew/kurtosis per column; does not modify the data."""
     rows: list[dict[str, object]] = []
     for col in num_cols:
         skew_before = df[col].skew()
@@ -68,12 +67,12 @@ def log_transform_report(df: pd.DataFrame, num_cols: list[str]) -> pd.DataFrame:
 
 
 def drop_redundant_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """Drop the raw visit counts now folded into service_utilization (cell 37)."""
+    """Drop raw visit counts now folded into service_utilization."""
     return df.drop(columns=REDUNDANT_COLS)
 
 
 def standardize_and_remove_outliers(df: pd.DataFrame, numerics: list[str]) -> pd.DataFrame:
-    """Z-standardize numeric features and drop |z| >= threshold rows (cell 48)."""
+    """Z-standardize numeric features and drop rows beyond the z-score threshold."""
     out = df.copy()
     out[numerics] = (out[numerics] - np.mean(out[numerics], axis=0)) / np.std(
         out[numerics], axis=0
@@ -83,7 +82,7 @@ def standardize_and_remove_outliers(df: pd.DataFrame, numerics: list[str]) -> pd
 
 
 def one_hot_encode(df: pd.DataFrame) -> pd.DataFrame:
-    """One-hot encode categorical columns and race (notebook cell 50)."""
+    """One-hot encode the categorical columns and race."""
     out = df.copy()
     out["level1_diag1"] = out["level1_diag1"].astype("object")
     encoded = pd.get_dummies(out, columns=ONE_HOT_COLS, drop_first=True)

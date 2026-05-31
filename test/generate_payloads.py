@@ -1,10 +1,4 @@
-"""Generate /predict test payloads from real engineered data rows.
-
-Run: uv run --no-sync python test/generate_payloads.py
-
-Writes test/*.json — each valid file is `{"features": {...}}` ready to POST.
-Picks real rows the winner predicts as 0 and as 1, plus negative-test cases.
-"""
+"""Generate /predict test payloads from real engineered data rows."""
 
 from __future__ import annotations
 

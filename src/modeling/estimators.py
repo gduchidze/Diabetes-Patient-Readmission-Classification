@@ -62,7 +62,7 @@ def model_params(kind: str, n_features: int) -> dict[str, object]:
 
 
 def build_feature_matrix(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
-    """Select available model features and the target (notebook cells 54/66)."""
+    """Select the available model features and the target."""
     features = [f for f in FEATURE_SET if f in df.columns]
     x = df[features]
     y = df["readmitted"]
@@ -70,7 +70,7 @@ def build_feature_matrix(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
 
 
 def resample_smote(x: pd.DataFrame, y: pd.Series) -> tuple[pd.DataFrame, pd.Series]:
-    """Balance classes with SMOTE oversampling (notebook cells 60/72)."""
+    """Balance classes with SMOTE oversampling."""
     smote = SMOTE(random_state=SMOTE_RANDOM_STATE)
     x_res, y_res = smote.fit_resample(x, y)
     x_res = pd.DataFrame(x_res, columns=list(x.columns))
@@ -78,12 +78,12 @@ def resample_smote(x: pd.DataFrame, y: pd.Series) -> tuple[pd.DataFrame, pd.Seri
 
 
 def split(x: pd.DataFrame, y: pd.Series) -> tuple:
-    """Train/test split with the notebook's fixed parameters."""
+    """Train/test split with fixed test size and seed."""
     return train_test_split(x, y, test_size=TEST_SIZE, random_state=RANDOM_STATE)
 
 
 def train_logistic(x_train: pd.DataFrame, y_train: pd.Series) -> LogisticRegression:
-    """L1-penalized logistic regression (notebook cells 56/61)."""
+    """L1-penalized logistic regression."""
     model = LogisticRegression(
         fit_intercept=True, penalty="l1", solver="liblinear", random_state=RANDOM_STATE
     )
@@ -94,7 +94,7 @@ def train_logistic(x_train: pd.DataFrame, y_train: pd.Series) -> LogisticRegress
 def train_decision_tree(
     x_train: pd.DataFrame, y_train: pd.Series
 ) -> DecisionTreeClassifier:
-    """Entropy decision tree (notebook cell 68)."""
+    """Entropy decision tree."""
     model = DecisionTreeClassifier(
         max_depth=DTREE_MAX_DEPTH,
         criterion="entropy",
@@ -107,7 +107,7 @@ def train_decision_tree(
 def train_random_forest(
     x_train: pd.DataFrame, y_train: pd.Series
 ) -> RandomForestClassifier:
-    """Gini random forest (notebook cell 73)."""
+    """Gini random forest."""
     model = RandomForestClassifier(
         n_estimators=RF_N_ESTIMATORS,
         max_depth=RF_MAX_DEPTH,

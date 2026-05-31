@@ -1,8 +1,4 @@
-"""EDA and model-comparison plots.
-
-All figures are written to the output directory so the pipeline runs headless;
-nothing relies on an interactive ``plt.show()``.
-"""
+"""EDA and model-comparison plots, written to the output directory."""
 
 from __future__ import annotations
 
@@ -25,7 +21,7 @@ def _ensure_output_dir() -> Path:
 
 
 def plot_eda(df: pd.DataFrame) -> None:
-    """Exploratory plots of features vs. readmission (notebook cells 24-30)."""
+    """Exploratory plots of features vs. readmission."""
     out = _ensure_output_dir()
 
     fig = plt.figure(figsize=(13, 7))
@@ -103,7 +99,7 @@ def plot_eda(df: pd.DataFrame) -> None:
 
 
 def plot_correlation(df: pd.DataFrame) -> None:
-    """Pearson correlation heatmap of numeric features (notebook cell 49)."""
+    """Pearson correlation heatmap of numeric features."""
     out = _ensure_output_dir()
     numeric_columns = df.select_dtypes(include=["int64", "float64"]).columns
     numeric = df[numeric_columns].drop(
@@ -118,7 +114,7 @@ def plot_correlation(df: pd.DataFrame) -> None:
 
 
 def plot_model_comparison(results: dict[str, dict[str, float]]) -> None:
-    """Grouped bar chart of model metrics (notebook cell 76)."""
+    """Grouped bar chart of model metrics."""
     out = _ensure_output_dir()
     models = list(results.keys())
     x_pos = range(len(models))

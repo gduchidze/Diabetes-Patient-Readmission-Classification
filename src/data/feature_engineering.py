@@ -1,5 +1,4 @@
-"""Feature engineering: derived features, recoding, encoding, interactions.
-"""
+"""Derived features, recoding, encoding, and interaction terms."""
 
 from __future__ import annotations
 
@@ -19,6 +18,7 @@ _ACTIVE_DRUG_STATES = ("Steady", "Up", "Down")
 
 
 def add_service_utilization(df: pd.DataFrame) -> pd.DataFrame:
+    """Total outpatient + emergency + inpatient visits."""
     out = df.copy()
     out["service_utilization"] = (
         out["number_outpatient"] + out["number_emergency"] + out["number_inpatient"]
@@ -27,6 +27,7 @@ def add_service_utilization(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_numchange(df: pd.DataFrame) -> pd.DataFrame:
+    """Count how many drugs changed dosage."""
     out = df.copy()
     numchange = pd.Series(0, index=out.index)
     for col in DRUG_KEYS:
@@ -38,6 +39,7 @@ def add_numchange(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def recode_admission_discharge(df: pd.DataFrame) -> pd.DataFrame:
+    """Collapse admission-type and discharge-disposition ids into groups."""
     out = df.copy()
     out["admission_type_id"] = out["admission_type_id"].replace(ADMISSION_TYPE_MAP)
     out["discharge_disposition_id"] = out["discharge_disposition_id"].replace(
@@ -47,6 +49,7 @@ def recode_admission_discharge(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def encode_binary_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Binary-encode change, gender, diabetesMed, and drug columns."""
     out = df.copy()
     out["change"] = out["change"].replace({"Ch": 1, "No": 0})
     out["gender"] = out["gender"].replace({"Male": 1, "Female": 0})
@@ -59,7 +62,7 @@ def encode_binary_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def encode_lab_results(df: pd.DataFrame) -> pd.DataFrame:
-    """Encode A1Cresult and max_glu_serum (notebook cell 16)."""
+    """Encode A1Cresult and max_glu_serum (None -> -99)."""
     out = df.copy()
     out["A1Cresult"] = out["A1Cresult"].replace(
         {">7": 1, ">8": 1, "Norm": 0, "None": -99}
@@ -71,12 +74,14 @@ def encode_lab_results(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def encode_target(df: pd.DataFrame) -> pd.DataFrame:
+    """Binary-encode readmitted: <30 days -> 1, else 0."""
     out = df.copy()
     out["readmitted"] = out["readmitted"].replace({">30": 0, "<30": 1, "NO": 0})
     return out
 
 
 def map_age_ordinal(df: pd.DataFrame) -> pd.DataFrame:
+    """Map age buckets to ordinals 1..10."""
     out = df.copy()
     for i in range(10):
         bucket = f"[{10 * i}-{10 * (i + 1)})"
@@ -85,12 +90,14 @@ def map_age_ordinal(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def map_age_midpoint(df: pd.DataFrame) -> pd.DataFrame:
+    """Map age ordinals to bucket midpoints."""
     out = df.copy()
     out["age"] = out["age"].astype("int64").map(AGE_DICT)
     return out
 
 
 def _categorize_diagnosis(value: float) -> int:
+    """Group an ICD-9 code into one of 9 broad categories."""
     if (390 <= value < 460) or (np.floor(value) == 785):
         return 1
     if (460 <= value < 520) or (np.floor(value) == 786):
@@ -111,6 +118,7 @@ def _categorize_diagnosis(value: float) -> int:
 
 
 def _categorize_level2_diagnosis(value: float) -> int:
+    """Group an ICD-9 code into one of 22 finer categories."""
     if 390 <= value < 399:
         return 1
     if 401 <= value < 415:
@@ -159,11 +167,13 @@ def _categorize_level2_diagnosis(value: float) -> int:
 
 
 def build_diagnosis_levels(df: pd.DataFrame) -> pd.DataFrame:
+    """Create numeric level1/level2 diag columns from diag_1/2/3."""
     out = df.copy()
     for src in ("diag_1", "diag_2", "diag_3"):
         idx = src[-1]
         out[f"level1_diag{idx}"] = out[src].astype(object)
         out[f"level2_diag{idx}"] = out[src].astype(object)
+        # V/E supplementary codes are non-numeric; map them to 0.
         is_supplementary = out[src].str.contains("V") | out[src].str.contains("E")
         out.loc[is_supplementary, [f"level1_diag{idx}", f"level2_diag{idx}"]] = 0
         for level in ("level1", "level2"):
@@ -173,6 +183,7 @@ def build_diagnosis_levels(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def categorize_diagnoses(df: pd.DataFrame) -> pd.DataFrame:
+    """Apply ICD-9 categorization to the level diag columns."""
     out = df.copy()
     for idx in ("1", "2", "3"):
         out[f"level1_diag{idx}"] = out[f"level1_diag{idx}"].apply(_categorize_diagnosis)
@@ -183,8 +194,7 @@ def categorize_diagnoses(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def cast_nominal_to_object(df: pd.DataFrame) -> pd.DataFrame:
-    """Cast nominal/categorical columns to object dtype
-    """
+    """Cast nominal columns to object so they stay out of numeric standardization."""
     out = df.copy()
     nominal = [
         "encounter_id",
@@ -212,7 +222,7 @@ def cast_nominal_to_object(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_nummed(df: pd.DataFrame) -> pd.DataFrame:
-    """Sum the binary drug indicators into a single count"""
+    """Sum the binary drug indicators into a single count."""
     out = df.copy()
     nummed = pd.Series(0, index=out.index)
     for col in DRUG_KEYS:
@@ -222,11 +232,7 @@ def add_nummed(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def recast_numeric(df: pd.DataFrame) -> pd.DataFrame:
-    """Restore int64 dtype on selected columns
-
-    Runs after the numeric column set for standardization has been captured, so
-    drug indicators rejoin the frame as ints without being standardized.
-    """
+    """Restore int dtype on ids and drugs after the numeric set was captured."""
     out = df.copy()
     for col in ("encounter_id", "patient_nbr", "diabetesMed", "change"):
         out[col] = out[col].astype("int64")
@@ -259,7 +265,7 @@ def recast_numeric(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_interaction_terms(df: pd.DataFrame) -> pd.DataFrame:
-    """Create pairwise product interaction features"""
+    """Create pairwise product interaction features."""
     out = df.copy()
     for left, right in INTERACTION_TERMS:
         out[f"{left}|{right}"] = out[left] * out[right]

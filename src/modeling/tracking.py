@@ -1,8 +1,4 @@
-"""MLflow experiment tracking (traditional-ML path).
-
-One run per model under a single experiment, with manual parameter/metric
-logging plus the fitted sklearn model as an artifact.
-"""
+"""MLflow experiment tracking: one run per model."""
 
 from __future__ import annotations
 

@@ -1,4 +1,7 @@
+"""Request/response schemas for the prediction API."""
+
 from pydantic import BaseModel, field_validator
+
 
 class PredictRequest(BaseModel):
     features: dict[str, float]

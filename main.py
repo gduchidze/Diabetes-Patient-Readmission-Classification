@@ -1,9 +1,4 @@
-"""End-to-end diabetes readmission classification pipeline.
-
-Mirrors the original notebook flow: load -> clean -> feature engineer ->
-transform -> EDA -> train (LogReg / DecisionTree / RandomForest with SMOTE) ->
-compare. Run with ``uv run python main.py``.
-"""
+"""End-to-end diabetes readmission pipeline: load, train, track, save winner."""
 
 from __future__ import annotations
 
@@ -50,7 +45,7 @@ from src.visualization.plots import plot_correlation, plot_eda, plot_model_compa
 
 
 def preprocess(df):
-    """Clean + engineer features through to the modeling-ready one-hot frame."""
+    """Clean and feature-engineer the raw frame into the model-ready matrix."""
     df = drop_sparse_columns(df)
     df = drop_invalid_rows(df)
     df = add_service_utilization(df)
@@ -63,24 +58,17 @@ def preprocess(df):
     df = build_diagnosis_levels(df)
     df = categorize_diagnoses(df)
 
-    # EDA uses the ordinal age, raw race, and service_utilization before they
-    # are transformed / dropped downstream.
     plot_eda(df)
 
     df = map_age_midpoint(df)
     df = cast_nominal_to_object(df)
     df = add_nummed(df)
-
-    # Skew/kurtosis report only (no data mutation), matching the notebook.
     log_transform_report(df, numeric_columns(df))
 
     df = drop_redundant_columns(df)
-    # Capture the numeric set BEFORE drugs are recast to int, so only the
-    # continuous features get standardized later.
     numerics = numeric_columns(df)
     df = recast_numeric(df)
 
-    # No-op after binary target encoding; preserved for parity with the notebook.
     df["readmitted"] = df["readmitted"].apply(lambda x: 0 if x == 2 else x)
 
     df = df.drop(columns=DIAG_DROP_COLS)
@@ -107,18 +95,11 @@ def _log_metrics(name: str, metrics: dict[str, float]) -> None:
 
 def run() -> dict[str, dict[str, float]]:
     """Run the full pipeline and return per-model metrics."""
-    logger.info("Loading data...")
-    df = load_data()
-
-    logger.info("Preprocessing...")
-    df_pd = preprocess(df)
-
+    df_pd = preprocess(load_data())
     init_tracking()
 
     x, y = build_feature_matrix(df_pd)
     n_features = x.shape[1]
-    logger.info("Feature matrix: {} rows x {} features", x.shape[0], n_features)
-    logger.info("Target distribution: {}", y.value_counts().to_dict())
 
     results: dict[str, dict[str, float]] = {}
 
@@ -163,7 +144,6 @@ def run() -> dict[str, dict[str, float]]:
     save_winner(forest, list(x_tr2.columns), x_te2.iloc[0].to_dict())
 
     plot_model_comparison(results)
-    logger.info("Plots written to ./outputs/")
     return results
 
 

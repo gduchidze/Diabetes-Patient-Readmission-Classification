@@ -1,8 +1,4 @@
-"""FastAPI service exposing the Random Forest winner via POST /predict.
-
-Run:
-    uv run uvicorn src.api:app --port 8000
-"""
+"""FastAPI service serving the Random Forest winner (run: uvicorn src.api.app:app)."""
 
 from __future__ import annotations
 
@@ -14,7 +10,6 @@ from src.modeling.persistence import load_winner
 from src.api.schemas import PredictRequest, PredictResponse
 
 _model, _feature_columns = load_winner()
-logger.info("Loaded winner model with {} features", len(_feature_columns))
 
 _LABELS = {0: "not readmitted <30 days", 1: "readmitted <30 days"}
 
@@ -23,11 +18,13 @@ app = FastAPI(title="Diabetes Readmission Classifier", version="1.0.0")
 
 @app.get("/health")
 def health() -> dict[str, object]:
+    """Service status and feature count."""
     return {"status": "ok", "n_features": len(_feature_columns)}
 
 
 @app.post("/predict", response_model=PredictResponse)
 def predict(request: PredictRequest) -> PredictResponse:
+    """Predict 30-day readmission from an engineered feature vector."""
     missing = [c for c in _feature_columns if c not in request.features]
     if missing:
         raise HTTPException(status_code=422, detail=f"missing required features: {missing}")
