@@ -6,8 +6,7 @@ modules stay declarative.
 
 from __future__ import annotations
 
-DATA_PATH: str = "diabetic_data.csv"
-OUTPUT_DIR: str = "outputs"
+from pydantic import BaseModel, field_validator
 
 SPARSE_COLS: list[str] = [
     "weight",
@@ -158,19 +157,110 @@ FEATURE_SET: list[str] = [
     "num_medications|numchange",
 ]
 
-ZSCORE_THRESHOLD: float = 3.0
-SKEW_KURT_THRESHOLD: float = 2.0
-LOG_ZERO_FRACTION: float = 0.02
-TEST_SIZE: float = 0.20
-RANDOM_STATE: int = 0
-SMOTE_RANDOM_STATE: int = 20
+# --- Validated runtime settings ------------------------------------------
+class Settings(BaseModel):
+    """Validated scalar config: tunables, paths, tracking, and serving.
 
-DTREE_MAX_DEPTH: int = 28
-DTREE_MIN_SAMPLES_SPLIT: int = 10
-RF_N_ESTIMATORS: int = 10
-RF_MAX_DEPTH: int = 25
-RF_MIN_SAMPLES_SPLIT: int = 10
+    Column lists/mappings above are structural and stay as module constants;
+    these scalars carry invariants worth enforcing with pydantic validators.
+    """
 
-# --- MLflow experiment tracking ------------------------------------------
-MLFLOW_TRACKING_URI: str = "mlruns"
-MLFLOW_EXPERIMENT: str = "diabetes-readmission"
+    # Paths
+    data_path: str = "diabetic_data.csv"
+    output_dir: str = "outputs"
+
+    # Transform thresholds
+    zscore_threshold: float = 3.0
+    skew_kurt_threshold: float = 2.0
+    log_zero_fraction: float = 0.02
+
+    # Split / resampling
+    test_size: float = 0.20
+    random_state: int = 0
+    smote_random_state: int = 20
+
+    # Model hyperparameters
+    dtree_max_depth: int = 28
+    dtree_min_samples_split: int = 10
+    rf_n_estimators: int = 10
+    rf_max_depth: int = 25
+    rf_min_samples_split: int = 10
+
+    # MLflow tracking
+    mlflow_tracking_uri: str = "mlruns"
+    mlflow_experiment: str = "diabetes-readmission"
+
+    # Model serving (FastAPI)
+    model_dir: str = "models"
+    winner_model_path: str = "models/winner_random_forest.joblib"
+    sample_input_path: str = "models/sample_input.json"
+
+    @field_validator("data_path")
+    @classmethod
+    def _csv_path(cls, v: str) -> str:
+        if not v.endswith(".csv"):
+            raise ValueError("data_path must point to a .csv file")
+        return v
+
+    @field_validator("test_size", "log_zero_fraction")
+    @classmethod
+    def _unit_interval(cls, v: float) -> float:
+        if not 0.0 < v < 1.0:
+            raise ValueError("must be strictly between 0 and 1")
+        return v
+
+    @field_validator("zscore_threshold", "skew_kurt_threshold")
+    @classmethod
+    def _positive_float(cls, v: float) -> float:
+        if v <= 0:
+            raise ValueError("must be greater than 0")
+        return v
+
+    @field_validator("random_state", "smote_random_state")
+    @classmethod
+    def _non_negative_int(cls, v: int) -> int:
+        if v < 0:
+            raise ValueError("must be >= 0")
+        return v
+
+    @field_validator(
+        "dtree_max_depth",
+        "dtree_min_samples_split",
+        "rf_n_estimators",
+        "rf_max_depth",
+        "rf_min_samples_split",
+    )
+    @classmethod
+    def _positive_int(cls, v: int) -> int:
+        if v <= 0:
+            raise ValueError("must be greater than 0")
+        return v
+
+    @field_validator("mlflow_experiment")
+    @classmethod
+    def _non_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("must not be empty")
+        return v
+
+
+settings = Settings()
+
+DATA_PATH: str = settings.data_path
+OUTPUT_DIR: str = settings.output_dir
+ZSCORE_THRESHOLD: float = settings.zscore_threshold
+SKEW_KURT_THRESHOLD: float = settings.skew_kurt_threshold
+LOG_ZERO_FRACTION: float = settings.log_zero_fraction
+TEST_SIZE: float = settings.test_size
+RANDOM_STATE: int = settings.random_state
+SMOTE_RANDOM_STATE: int = settings.smote_random_state
+DTREE_MAX_DEPTH: int = settings.dtree_max_depth
+DTREE_MIN_SAMPLES_SPLIT: int = settings.dtree_min_samples_split
+RF_N_ESTIMATORS: int = settings.rf_n_estimators
+RF_MAX_DEPTH: int = settings.rf_max_depth
+RF_MIN_SAMPLES_SPLIT: int = settings.rf_min_samples_split
+MLFLOW_TRACKING_URI: str = settings.mlflow_tracking_uri
+MLFLOW_EXPERIMENT: str = settings.mlflow_experiment
+MODEL_DIR: str = settings.model_dir
+WINNER_MODEL_PATH: str = settings.winner_model_path
+SAMPLE_INPUT_PATH: str = settings.sample_input_path

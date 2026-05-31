@@ -17,7 +17,6 @@ def init_tracking() -> None:
     """Point MLflow at the local store and select/create the experiment."""
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
     mlflow.set_experiment(MLFLOW_EXPERIMENT)
-    # Tag the experiment so MLflow recognizes it as a custom-model project.
     mlflow.set_experiment_tag("mlflow.experimentKind", "custom_model_development")
 
 

@@ -10,6 +10,8 @@ from __future__ import annotations
 from src.config import DIAG_DROP_COLS
 from src.cleaning import drop_invalid_rows, drop_sparse_columns
 from src.data_loader import load_data
+from src.logger import logger
+from src.persistence import save_winner
 from src.feature_engineering import (
     add_interaction_terms,
     add_numchange,
@@ -29,12 +31,14 @@ from src.feature_engineering import (
 from src.models import (
     build_feature_matrix,
     evaluate,
+    model_params,
     resample_smote,
     split,
     train_decision_tree,
     train_logistic,
     train_random_forest,
 )
+from src.tracking import init_tracking, log_model_run
 from src.transform import (
     drop_redundant_columns,
     log_transform_report,
@@ -90,51 +94,76 @@ def preprocess(df):
     return one_hot_encode(df2)
 
 
-def _print_metrics(name: str, metrics: dict[str, float]) -> None:
-    print(f"\n=== {name} ===")
-    print(f"Accuracy  : {metrics['accuracy']:.4f}")
-    print(f"Precision : {metrics['precision']:.4f}")
-    print(f"Recall    : {metrics['recall']:.4f}")
-    print(f"F1        : {metrics['f1']:.4f}")
+def _log_metrics(name: str, metrics: dict[str, float]) -> None:
+    logger.info(
+        "{} | acc={:.4f} prec={:.4f} recall={:.4f} f1={:.4f}",
+        name,
+        metrics["accuracy"],
+        metrics["precision"],
+        metrics["recall"],
+        metrics["f1"],
+    )
 
 
 def run() -> dict[str, dict[str, float]]:
     """Run the full pipeline and return per-model metrics."""
-    print("Loading data...")
+    logger.info("Loading data...")
     df = load_data()
 
-    print("Preprocessing...")
+    logger.info("Preprocessing...")
     df_pd = preprocess(df)
 
+    init_tracking()
+
     x, y = build_feature_matrix(df_pd)
-    print(f"\nFeature matrix: {x.shape[0]} rows x {x.shape[1]} features")
-    print("Target distribution:")
-    print(y.value_counts())
+    n_features = x.shape[1]
+    logger.info("Feature matrix: {} rows x {} features", x.shape[0], n_features)
+    logger.info("Target distribution: {}", y.value_counts().to_dict())
 
     results: dict[str, dict[str, float]] = {}
 
-    # Logistic regression on SMOTE-balanced data (notebook cells 56-63).
     x_train, _x_test, y_train, _y_test = split(x, y)
     x_res, y_res = resample_smote(x_train, y_train)
     x_tr, x_te, y_tr, y_te = split(x_res, y_res)
     logit = train_logistic(x_tr, y_tr)
     results["Logistic Regression"] = evaluate(logit, x_te, y_te)
-    _print_metrics("Logistic Regression", results["Logistic Regression"])
+    _log_metrics("Logistic Regression", results["Logistic Regression"])
+    log_model_run(
+        "Logistic Regression",
+        logit,
+        model_params("Logistic Regression", n_features),
+        results["Logistic Regression"],
+        x_te.head(),
+    )
 
-    # Decision tree reuses the logistic SMOTE split (notebook cells 66-71).
     dtree = train_decision_tree(x_tr, y_tr)
     results["Decision Tree"] = evaluate(dtree, x_te, y_te)
-    _print_metrics("Decision Tree", results["Decision Tree"])
+    _log_metrics("Decision Tree", results["Decision Tree"])
+    log_model_run(
+        "Decision Tree",
+        dtree,
+        model_params("Decision Tree", n_features),
+        results["Decision Tree"],
+        x_te.head(),
+    )
 
-    # Random forest on a fresh full-data SMOTE split (notebook cells 72-75).
     x_res2, y_res2 = resample_smote(x, y)
     x_tr2, x_te2, y_tr2, y_te2 = split(x_res2, y_res2)
     forest = train_random_forest(x_tr2, y_tr2)
     results["Random Forests"] = evaluate(forest, x_te2, y_te2)
-    _print_metrics("Random Forests", results["Random Forests"])
+    _log_metrics("Random Forests", results["Random Forests"])
+    log_model_run(
+        "Random Forests",
+        forest,
+        model_params("Random Forests", n_features),
+        results["Random Forests"],
+        x_te2.head(),
+    )
+
+    save_winner(forest, list(x_tr2.columns), x_te2.iloc[0].to_dict())
 
     plot_model_comparison(results)
-    print("\nPlots written to ./outputs/")
+    logger.info("Plots written to ./outputs/")
     return results
 
 
