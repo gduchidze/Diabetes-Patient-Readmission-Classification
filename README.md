@@ -1,102 +1,204 @@
 # Diabetes Patient Readmission Classification
 
-A machine learning project that predicts whether a diabetes patient will be readmitted to the hospital within 30 days, using clinical encounter data.
+Predict whether a diabetic patient will be **readmitted to hospital within 30 days**,
+using the [Diabetes 130-US Hospitals (1999–2008)](https://archive.ics.uci.edu/dataset/296/diabetes+130-us+hospitals+for+years+1999-2008)
+dataset (~100k encounters, 50 columns).
 
-## Overview
+The project is an end-to-end ML pipeline: clean → feature-engineer → transform →
+train three models → track them in **MLflow** → serve the winning model through a
+**FastAPI** `POST /predict` endpoint.
 
-Hospital readmissions for diabetic patients are costly and often preventable. This project builds classification models to identify patients at high risk of early readmission (< 30 days) based on their clinical records. Three classifiers are trained and compared: **Logistic Regression**, **Decision Tree**, and **Random Forest**.
+---
 
-## Dataset
+## What it does
 
-The project uses the [UCI Diabetes 130-US Hospitals dataset](https://archive.ics.uci.edu/ml/datasets/Diabetes+130-US+hospitals+for+years+1999-2008), stored locally as `diabetic_data.csv`. The dataset contains over 100,000 inpatient diabetes encounters collected from 130 US hospitals between 1999 and 2008.
+1. **Load & clean** the raw `diabetic_data.csv` — drop sparse columns
+   (`weight`, `payer_code`, …), remove invalid rows (missing diagnoses/race,
+   expired patients, unknown gender).
+2. **Feature engineering** — service utilization, medication-change counts,
+   ICD-9 diagnosis grouping, age midpoints, drug binary-encoding, and pairwise
+   interaction terms.
+3. **Transform** — skew reporting, z-score standardization + outlier removal,
+   one-hot encoding → a 42-feature model matrix.
+4. **Train** Logistic Regression (L1), Decision Tree, and Random Forest, each on
+   SMOTE-balanced data.
+5. **Track** every model's params, metrics, and artifact in MLflow.
+6. **Serve** the Random Forest (the winner) via FastAPI.
 
-**Key columns include:**
+### Model results
 
-| Column | Description |
-|--------|-------------|
-| `patient_nbr` | Unique patient identifier |
-| `age` | Age bracket (e.g. `[50-60)`) |
-| `race` | Patient's race |
-| `gender` | Patient's gender |
-| `time_in_hospital` | Number of days admitted |
-| `num_medications` | Number of distinct medications administered |
-| `num_lab_procedures` | Number of lab tests performed |
-| `number_diagnoses` | Number of diagnoses recorded |
-| `diag_1/2/3` | Primary, secondary, and additional ICD-9 diagnosis codes |
-| `insulin`, `metformin`, … | Medication dosage change indicators |
-| `A1Cresult` | HbA1c test result |
-| `readmitted` | Target: `<30` (readmitted < 30 days), `>30`, or `NO` |
+| Model | Accuracy | Precision | Recall | F1 |
+|-------|---------:|----------:|-------:|---:|
+| Logistic Regression | 0.837 | 0.849 | 0.820 | 0.834 |
+| Decision Tree | 0.881 | 0.884 | 0.876 | 0.880 |
+| **Random Forest (winner)** | **0.920** | **0.958** | **0.880** | **0.918** |
 
-## Project Structure
+> Note: Decision Tree / Random Forest scores are high partly because SMOTE is
+> applied before the train/test split (preserved from the original notebook).
+> Numbers vary slightly per run.
 
-```
-.
-├── main.ipynb          # End-to-end notebook: EDA, preprocessing, modelling, evaluation
-├── diabetic_data.csv   # Raw dataset (not included in repo — download separately)
-└── README.md
-```
+---
 
-## Methodology
+## Generated artifacts
 
-### 1. Data Cleaning
-- Drop high-missingness columns (`weight`, `payer_code`, `medical_specialty`) and constant-value columns (`citoglipton`, `examide`).
-- Remove rows where all three diagnosis codes are missing, or where race/gender is unknown.
-- Exclude patients discharged to hospice (`discharge_disposition_id == 11`).
+Running the pipeline writes plots to `outputs/`, the serving model to `models/`,
+and tracking runs to `mlruns/`.
 
-### 2. Feature Engineering
-- **Service utilisation** – sum of outpatient, emergency, and inpatient visit counts.
-- **Medication change count** (`numchange`) – number of diabetes medications whose dosage was adjusted.
-- **Number of active medications** (`nummed`).
-- **Diagnosis categorisation** – ICD-9 codes mapped to 8 broad disease groups (`level1_diag`) and 22 sub-groups (`level2_diag`).
-- **Interaction terms** – pairwise products between key numeric features (e.g. `num_medications × time_in_hospital`).
-- Age brackets converted to decade mid-point values (5, 15, …, 95).
+### Model comparison
 
-### 3. Preprocessing
-- Binary encoding for `gender`, `change`, `diabetesMed`.
-- Ordinal encoding for `A1Cresult` and `max_glu_serum`.
-- Grouping of sparse `admission_type_id`, `discharge_disposition_id`, and `admission_source_id` categories.
-- One-hot encoding of categorical features (`race`, `admission_type_id`, `discharge_disposition_id`, etc.).
-- Duplicate patient records removed (first encounter kept).
-- Z-score standardisation of numeric features; outliers (|z| > 3) removed.
+![Model comparison](outputs/model_comparison.png)
 
-### 4. Class Imbalance Handling
-SMOTE (Synthetic Minority Over-sampling Technique) is applied to the training split to balance the binary readmission classes before model fitting.
+### Exploratory data analysis
 
-### 5. Models & Evaluation
+| | |
+|---|---|
+| ![Time in hospital](outputs/eda_time_in_hospital.png) | ![Age](outputs/eda_age.png) |
+| ![Race](outputs/eda_race.png) | ![Num medications](outputs/eda_num_medications.png) |
+| ![Service utilization](outputs/eda_service_utilization.png) | ![Max glucose serum](outputs/eda_max_glu_serum.png) |
+| ![Lab procedures](outputs/eda_num_lab_procedures.png) | ![Correlation heatmap](outputs/correlation_heatmap.png) |
 
-| Model | Notes |
-|-------|-------|
-| Logistic Regression | L1 penalty (`liblinear` solver) |
-| Decision Tree | Entropy criterion, `max_depth=28` |
-| Random Forest | 10 estimators, Gini criterion, `max_depth=25` |
+---
 
-Models are evaluated on Accuracy, Precision, Recall, and F1-Score.
-
-## Requirements
+## Project structure
 
 ```
-pandas
-numpy
-matplotlib
-seaborn
-scikit-learn
-imbalanced-learn
-scipy
+Diabetes-Patient-Readmission-Classification/
+├── main.py                      # orchestrator: full pipeline end-to-end
+├── pyproject.toml               # uv-managed dependencies
+├── diabetic_data.csv            # raw dataset
+├── src/
+│   ├── config.py                # pydantic-validated settings + column lists
+│   ├── logger.py                # central loguru logger
+│   ├── data_loader.py           # CSV loading
+│   ├── cleaning.py              # drop sparse cols / invalid rows
+│   ├── feature_engineering.py   # derived features, encoding, interactions
+│   ├── transform.py             # standardize, outlier removal, one-hot
+│   ├── visualization.py         # EDA + model-comparison plots
+│   ├── models.py                # SMOTE, train/eval LogReg/DTree/RF
+│   ├── tracking.py              # MLflow experiment + run logging
+│   ├── persistence.py           # save/load the winning model (joblib)
+│   ├── schemas.py               # FastAPI request/response models
+│   └── api.py                   # FastAPI /predict service
+├── test/                        # ready-to-POST /predict payloads
+├── outputs/                     # generated plots (created by main.py)
+├── models/                      # winner_random_forest.joblib + sample_input.json
+└── mlruns/                      # MLflow tracking store
 ```
 
-Install all dependencies with:
+---
+
+## Setup
+
+Requires [uv](https://docs.astral.sh/uv/). Install dependencies:
 
 ```bash
-pip install pandas numpy matplotlib seaborn scikit-learn imbalanced-learn scipy
+uv sync
 ```
 
-## Usage
+> If `uv sync` fails on a `scipy` source build (no wheel for your Python), the
+> dependencies are already resolvable in the existing `.venv`; prefix commands
+> with `uv run --no-sync` to skip re-resolution, or loosen the exact version
+> pins in `pyproject.toml` back to `>=` ranges.
 
-1. Download `diabetic_data.csv` from the [UCI ML Repository](https://archive.ics.uci.edu/ml/datasets/Diabetes+130-US+hospitals+for+years+1999-2008) and place it in the project root.
-2. Launch Jupyter and open the notebook:
+---
+
+## 1. Run the training pipeline
 
 ```bash
-jupyter notebook main.ipynb
+uv run python main.py
 ```
 
-3. Run all cells from top to bottom. The final cell produces a bar chart comparing the three models across Accuracy, Precision, and Recall. F1-Score is also computed and printed per model during evaluation.
+This trains all three models and produces:
+- `outputs/*.png` — EDA plots + model comparison
+- `models/winner_random_forest.joblib` — the served model + its feature columns
+- `models/sample_input.json` — a ready `/predict` feature payload
+- `mlruns/` — MLflow runs
+
+---
+
+## 2. MLflow — experiment tracking
+
+Each run logs one MLflow run per model (params, metrics, model artifact) under the
+`diabetes-readmission` experiment.
+
+Launch the MLflow UI:
+
+```bash
+uv run mlflow ui          # then open http://127.0.0.1:5000
+```
+
+Inspect runs from the CLI:
+
+```bash
+uv run mlflow experiments search
+uv run mlflow runs search --experiment-id <ID>
+```
+
+---
+
+## 3. FastAPI — model serving
+
+Start the API (needs `models/winner_random_forest.joblib` from step 1):
+
+```bash
+uv run uvicorn src.api:app --port 8000
+```
+
+Interactive docs: <http://127.0.0.1:8000/docs>
+
+### Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET`  | `/health`  | Service status + feature count |
+| `POST` | `/predict` | Predict readmission from an engineered feature vector |
+
+`POST /predict` accepts the **42 engineered feature values** (the exact model input)
+and returns:
+
+```json
+{
+  "prediction": 1,
+  "label": "readmitted <30 days",
+  "probability_readmit_lt30": 0.535
+}
+```
+
+### Try it
+
+```bash
+# health
+curl -s localhost:8000/health
+
+# prediction using a generated payload
+curl -s -X POST localhost:8000/predict \
+  -H 'Content-Type: application/json' \
+  -d @test/predict_readmitted.json
+```
+
+---
+
+## 4. Test payloads
+
+The `test/` directory holds ready-to-POST JSON payloads built from real data rows
+(see `test/README.md`):
+
+| File | Expected |
+|------|----------|
+| `predict_not_readmitted.json` | `200` → `prediction: 0` |
+| `predict_readmitted.json` | `200` → `prediction: 1` |
+| `invalid_missing_features.json` | `422` (missing features) |
+| `invalid_empty.json` | `422` (empty features) |
+
+Regenerate them anytime:
+
+```bash
+uv run python test/generate_payloads.py
+```
+
+---
+
+## Tech stack
+
+pandas · numpy · scikit-learn · imbalanced-learn (SMOTE) · scipy · matplotlib ·
+seaborn · MLflow · FastAPI · uvicorn · pydantic · loguru · uv
